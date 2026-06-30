@@ -1,0 +1,102 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import api from '../api';
+
+export default function TradeModal({ stock, live, onClose }) {
+  const [qty, setQty] = useState(1);
+  const [side, setSide] = useState('BUY');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const total = (live.lastPrice || 0) * qty;
+
+  const submit = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const endpoint = side === 'BUY' ? '/trade/buy' : '/trade/sell';
+      const { data } = await api.post(endpoint, { symbol: stock.symbol, quantity: qty });
+      setMessage({ type: 'success', text: `${side} executed: ${qty} share(s) of ${stock.symbol} @ ₹${data.price}` });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Trade failed' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-panel border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-bold">{stock.symbol}</h2>
+              <p className="text-xs text-gray-400">{stock.name}</p>
+            </div>
+            <p className="text-2xl font-extrabold">₹{live.lastPrice?.toFixed(2)}</p>
+          </div>
+
+          <div className="flex gap-2 mb-4">
+            {['BUY', 'SELL'].map((s) => (
+              <button
+                key={s}
+                onClick={() => setSide(s)}
+                className={`flex-1 py-2 rounded-xl font-semibold transition ${
+                  side === s
+                    ? s === 'BUY' ? 'bg-bull text-black' : 'bg-bear text-white'
+                    : 'bg-white/5 text-gray-400'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <label className="text-xs text-gray-400">Quantity</label>
+          <input
+            type="number"
+            min={1}
+            value={qty}
+            onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-full mt-1 mb-4 bg-ink border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-accent"
+          />
+
+          <div className="flex justify-between text-sm mb-4 text-gray-300">
+            <span>Estimated total</span>
+            <span className="font-semibold">₹{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+          </div>
+
+          {message && (
+            <p className={`text-sm mb-3 ${message.type === 'success' ? 'text-bull' : 'text-bear'}`}>{message.text}</p>
+          )}
+
+          <button
+            onClick={submit}
+            disabled={loading}
+            className={`w-full py-3 rounded-xl font-bold transition ${
+              side === 'BUY' ? 'bg-bull text-black hover:opacity-90' : 'bg-bear text-white hover:opacity-90'
+            } disabled:opacity-50`}
+          >
+            {loading ? 'Placing order…' : `${side} ${stock.symbol}`}
+          </button>
+
+          <button onClick={onClose} className="w-full mt-2 text-xs text-gray-500 hover:text-gray-300">
+            Close
+          </button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}

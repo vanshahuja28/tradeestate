@@ -1,0 +1,77 @@
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import api from '../api';
+import StockCard from '../components/StockCard';
+
+export default function Market() {
+  const [stocks, setStocks] = useState([]);
+  const [sectors, setSectors] = useState([]);
+  const [search, setSearch] = useState('');
+  const [sector, setSector] = useState('');
+  const [sort, setSort] = useState('symbol');
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/stocks/sectors').then((res) => setSectors(res.data));
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    api
+      .get('/stocks', { params: { search, sector, sort, page, limit: 48 } })
+      .then((res) => {
+        setStocks(res.data.stocks);
+        setPages(res.data.pages);
+      })
+      .finally(() => setLoading(false));
+  }, [search, sector, sort, page]);
+
+  return (
+    <div>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
+        <h1 className="text-3xl font-extrabold">Browse 500+ Market Properties</h1>
+        <p className="text-gray-400 text-sm mt-1">
+          Every "property" here is a real NSE-listed company. Prices move live — just like the real Indian stock market.
+        </p>
+      </motion.div>
+
+      <div className="flex flex-wrap gap-3 mb-6">
+        <input
+          placeholder="Search by symbol or company…"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="flex-1 min-w-[200px] bg-panel border border-white/10 rounded-xl px-4 py-2 outline-none focus:border-accent"
+        />
+        <select
+          value={sector}
+          onChange={(e) => { setSector(e.target.value); setPage(1); }}
+          className="bg-panel border border-white/10 rounded-xl px-4 py-2"
+        >
+          <option value="">All sectors</option>
+          {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-panel border border-white/10 rounded-xl px-4 py-2">
+          <option value="symbol">Sort: A-Z</option>
+          <option value="changePct">Sort: Top gainers</option>
+          <option value="price">Sort: Price (high-low)</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-20 text-gray-500">Loading live properties…</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {stocks.map((s) => <StockCard key={s.symbol} stock={s} />)}
+        </div>
+      )}
+
+      <div className="flex justify-center gap-2 mt-8">
+        <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="px-4 py-2 rounded-xl bg-panel border border-white/10 disabled:opacity-30">Prev</button>
+        <span className="px-4 py-2 text-gray-400 text-sm">Page {page} of {pages}</span>
+        <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="px-4 py-2 rounded-xl bg-panel border border-white/10 disabled:opacity-30">Next</button>
+      </div>
+    </div>
+  );
+}
